@@ -154,6 +154,19 @@ defmodule ReqLLM.OpenAIWebSocketTest do
     def handle_info(_message, test_pid), do: {:ok, test_pid}
   end
 
+  defmodule RemoteCloseSocket do
+    @behaviour WebSock
+
+    def init(test_pid), do: {:ok, test_pid}
+
+    def handle_in({_message, _opts}, test_pid) do
+      code = Application.fetch_env!(:req_llm, :test_remote_close_code)
+      {:stop, :normal, {code, "closed"}, test_pid}
+    end
+
+    def handle_info(_message, test_pid), do: {:ok, test_pid}
+  end
+
   defmodule MessageTooBigWithoutFallbackProvider do
     def stream_transport(_model, _opts), do: :websocket
 
@@ -385,7 +398,7 @@ defmodule ReqLLM.OpenAIWebSocketTest do
     send(socket, {:emit, failed})
     assert {:ok, ^failed} = Responses.next_event(session)
     send(socket, :disconnect)
-    assert :halt = Responses.next_event(session)
+    assert {:error, {:remote, 1000, "closed"}} = Responses.next_event(session)
     assert {:error, _} = Responses.steer(session, "resp_1", "Update")
     refute_received {:responses_connected, _}
     Responses.close(session)
@@ -494,6 +507,41 @@ defmodule ReqLLM.OpenAIWebSocketTest do
     assert ReqLLM.StreamResponse.finish_reason(stream_response) == :stop
     assert_received {:responses_oversized_socket_message, %{"type" => "response.create"}}
     assert_received {:responses_http_request, %{"model" => "gpt-5"}}
+  end
+
+  for code <- [1000, 1012] do
+    test "falls back before any event on remote close #{code}", %{base_url: base_url} do
+      Application.put_env(:req_llm, :openai_websocket_responses_socket, RemoteCloseSocket)
+      Application.put_env(:req_llm, :test_remote_close_code, unquote(code))
+      on_exit(fn -> Application.delete_env(:req_llm, :test_remote_close_code) end)
+
+      {:ok, response} =
+        ReqLLM.stream_text("openai:gpt-5", "Hello",
+          base_url: base_url,
+          provider_options: [openai_stream_transport: :websocket]
+        )
+
+      assert ReqLLM.StreamResponse.text(response) == "HTTP fallback"
+      assert_received {:responses_http_request, _}
+    end
+  end
+
+  test "normal remote close after an event fails instead of completing partial output", %{
+    base_url: base_url
+  } do
+    Application.put_env(:req_llm, :openai_websocket_responses_socket, ControlledResponsesSocket)
+
+    {:ok, response} =
+      ReqLLM.stream_text("openai:gpt-5", "Hello",
+        base_url: base_url,
+        provider_options: [openai_stream_transport: :websocket]
+      )
+
+    assert_receive {:responses_connected, socket}
+    send(socket, {:emit, %{"type" => "response.created", "response" => %{"id" => "partial"}}})
+    send(socket, :disconnect)
+    assert_raise ReqLLM.Error.API.Stream, fn -> Enum.to_list(response.stream) end
+    refute_received {:responses_http_request, _}
   end
 
   test "owned websocket sessions stop after HTTP fallback", %{base_url: base_url} do

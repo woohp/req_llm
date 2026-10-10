@@ -180,13 +180,11 @@ defmodule ReqLLM.Streaming.WebSocketClient do
             )
 
           {:error, reason} ->
-            safe_http_event(stream_server_pid, {:error, reason})
-            {:error, reason}
+            websocket_failure(reason, stream_server_pid, false)
         end
 
       {:error, reason} ->
-        safe_http_event(stream_server_pid, {:error, reason})
-        {:error, reason}
+        websocket_failure(reason, stream_server_pid, false)
     end
   end
 
@@ -217,18 +215,19 @@ defmodule ReqLLM.Streaming.WebSocketClient do
         end
 
       :halt ->
-        :ok
-
-      {:error, :closed} ->
-        :ok
+        websocket_failure(:closed, stream_server_pid, output_observed?)
 
       {:error, reason} ->
-        if message_too_big?(reason) do
-          {:websocket_error, reason, output_observed?}
-        else
-          safe_http_event(stream_server_pid, {:error, reason})
-          {:error, reason}
-        end
+        websocket_failure(reason, stream_server_pid, output_observed?)
+    end
+  end
+
+  defp websocket_failure(reason, stream_server_pid, output_observed?) do
+    if fallback_close?(reason) do
+      {:websocket_error, reason, output_observed?}
+    else
+      safe_http_event(stream_server_pid, {:error, reason})
+      {:error, reason}
     end
   end
 
@@ -307,8 +306,10 @@ defmodule ReqLLM.Streaming.WebSocketClient do
        ),
        do: result
 
-  defp message_too_big?({side, 1009, _detail}) when side in [:local, :remote], do: true
-  defp message_too_big?(_reason), do: false
+  defp fallback_close?({side, 1009, _detail}) when side in [:local, :remote], do: true
+  defp fallback_close?({:remote, code, _detail}) when code in [1000, 1012], do: true
+  defp fallback_close?({:remote, reason}) when reason in [:normal, :closed], do: true
+  defp fallback_close?(_reason), do: false
 
   defp mark_session_http_fallback(session) when is_pid(session) do
     WebSocketSession.mark_http_fallback(session)
