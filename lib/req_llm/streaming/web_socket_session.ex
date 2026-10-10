@@ -340,10 +340,11 @@ defmodule ReqLLM.Streaming.WebSocketSession do
 
   defp normalize_disconnect_reason(:normal), do: :closed
   defp normalize_disconnect_reason({:local, :normal}), do: :closed
-  defp normalize_disconnect_reason({:remote, :normal}), do: :closed
-  defp normalize_disconnect_reason({:remote, :closed}), do: :closed
 
-  defp normalize_disconnect_reason({side, 1000, _detail}) when side in [:local, :remote],
+  defp normalize_disconnect_reason({:remote, reason}) when reason in [:normal, :closed],
+    do: {:error, {:remote, reason}}
+
+  defp normalize_disconnect_reason({side, 1000, _detail}) when side == :local,
     do: :closed
 
   defp normalize_disconnect_reason(:shutdown), do: :closed
