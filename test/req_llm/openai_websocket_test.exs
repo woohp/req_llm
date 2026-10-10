@@ -544,6 +544,21 @@ defmodule ReqLLM.OpenAIWebSocketTest do
     refute_received {:responses_http_request, _}
   end
 
+  test "a provider error event does not trigger HTTP fallback", %{base_url: base_url} do
+    Application.put_env(:req_llm, :openai_websocket_responses_socket, ControlledResponsesSocket)
+
+    {:ok, response} =
+      ReqLLM.stream_text("openai:gpt-5", "Hello",
+        base_url: base_url,
+        provider_options: [openai_stream_transport: :websocket]
+      )
+
+    assert_receive {:responses_connected, socket}
+    send(socket, {:emit, %{"type" => "error", "message" => "Provider refused request"}})
+    assert_raise ReqLLM.Error.API.Stream, fn -> Enum.to_list(response.stream) end
+    refute_received {:responses_http_request, _}
+  end
+
   test "owned websocket sessions stop after HTTP fallback", %{base_url: base_url} do
     Application.put_env(
       :req_llm,
