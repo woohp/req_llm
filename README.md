@@ -55,6 +55,7 @@ show the module's broad scope. The selected model can support fewer operations.
 | Atlas Cloud | `atlascloud` | text | — |
 | [Azure OpenAI](https://llmcatalog.dev/?providers=azure) | `azure` | text, embedding, image | [Guide](guides/azure.md) |
 | [Cerebras](https://llmcatalog.dev/?providers=cerebras) | `cerebras` | text | [Guide](guides/cerebras.md) |
+| [Cheaper Inference](https://api.cheaperinference.com/docs) | `cheaperinference` | text | — |
 | [Cohere](https://llmcatalog.dev/?providers=cohere) | `cohere` | text, rerank | — |
 | [DeepSeek](https://llmcatalog.dev/?providers=deepseek) | `deepseek` | text | [Guide](guides/deepseek.md) |
 | [ElevenLabs](https://llmcatalog.dev/?providers=elevenlabs) | `elevenlabs` | speech | — |
@@ -63,6 +64,7 @@ show the module's broad scope. The selected model can support fewer operations.
 | [Google Gemini](https://llmcatalog.dev/?providers=google) | `google` | text, embedding, image | [Guide](guides/google.md) |
 | [Google Vertex AI](https://llmcatalog.dev/?providers=google_vertex) | `google_vertex` | text | [Guide](guides/google_vertex.md) |
 | [Groq](https://llmcatalog.dev/?providers=groq) | `groq` | text, speech, transcription | [Guide](guides/groq.md) |
+| [Inference.net](https://inference.net/models) | `inference` | text, structured output, streaming | [Guide](guides/inference.md) |
 | [Meta Model API](https://llmcatalog.dev/?providers=meta) | `meta` | text | [Guide](guides/meta.md) |
 | [MiniMax](https://llmcatalog.dev/?providers=minimax) | `minimax` | text, video | — |
 | [Mistral](https://llmcatalog.dev/?providers=mistral) | `mistral` | text, embedding | — |
@@ -112,6 +114,12 @@ user's server, so the models do not need LLMDB catalog entries.
 
 ## Installation
 
+> **Security update:** ReqLLM 1.29.0 fixes
+> [GHSA-6vww-5m28-f26v](https://github.com/agentjido/req_llm/security/advisories/GHSA-6vww-5m28-f26v).
+> Versions 1.9.0 through 1.28.0 did not verify TLS certificates for affected
+> WebSocket sessions. Users of OpenAI Responses WebSocket, Realtime, or Codex
+> WebSocket sessions should upgrade. HTTP streaming is not affected.
+
 ### Igniter Installation (Recommended)
 
 The fastest way to get started is with [Igniter](https://hex.pm/packages/igniter):
@@ -127,7 +135,7 @@ Add `req_llm` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:req_llm, "~> 1.6"}
+    {:req_llm, "~> 1.29"}
   ]
 end
 ```
@@ -269,7 +277,7 @@ usage = ReqLLM.StreamResponse.usage(response)
 
 ## Evaluation models
 
-Evaluation models answer named questions about one text or JSON state. They do
+Evaluation models answer named questions about one text, JSON, or context state. They do
 not need to support chat. `ReqLLM.evaluation_models/0` lists specs that
 ReqLLM can call. Set `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, or `OPENAI_API_KEY` in `.env`:
 
@@ -303,7 +311,8 @@ the common ReqLLM name for that question. The moving OpenRouter ID keeps its
 leading `~` in the request. An unknown model ID requires a full inline model
 spec with evaluation capability and execution metadata. Catalog models without
 evaluation support and gateways without an adapter return an error before HTTP.
-OpenAI Decisions accepts string, map, and list state with boolean, choice, and score questions.
+OpenAI Decisions accepts string, map, list, and `ReqLLM.Context` state with boolean, choice, and
+score questions. A context can carry images in user messages.
 It returns refusals as `%{"type" => "refusal"}`. If OpenAI reports positive compute units without a
 known tariff, ReqLLM keeps the count and leaves the cost unknown.
 See [OpenRouter](guides/openrouter.md) for the gateway contract and an inline model example. See
@@ -726,7 +735,7 @@ This approach gives you full control over the Req pipeline, allowing you to add 
 - [Mix Tasks](guides/mix-tasks.md) – model sync, compatibility testing, code generation
 - [Fixture Testing](guides/fixture-testing.md) – model validation and supported models
 - [Adding a Provider](guides/adding_a_provider.md) – extend with new providers
-- Provider Guides: [Amazon Bedrock](guides/amazon_bedrock.md), [Anthropic](guides/anthropic.md), [Azure](guides/azure.md), [Cerebras](guides/cerebras.md), [DeepSeek](guides/deepseek.md), [Fireworks AI](guides/fireworks_ai.md), [GitHub Copilot](guides/github_copilot.md), [Google](guides/google.md), [Google Vertex](guides/google_vertex.md), [Groq](guides/groq.md), [LM Studio](guides/lmstudio.md), [Meta](guides/meta.md), [Moonshot AI](guides/moonshot_ai.md), [NEAR AI](guides/nearai.md), [Ollama](guides/ollama.md), [OpenAI](guides/openai.md), [OpenRouter](guides/openrouter.md), [Reflection AI](guides/reflection.md), [StepFun](guides/stepfun.md), [xAI](guides/xai.md), [Z.AI](guides/zai.md), [Z.AI Coder](guides/zai_coder.md), [Zenmux](guides/zenmux.md)
+- Provider Guides: [Amazon Bedrock](guides/amazon_bedrock.md), [Anthropic](guides/anthropic.md), [Azure](guides/azure.md), [Cerebras](guides/cerebras.md), [DeepSeek](guides/deepseek.md), [Fireworks AI](guides/fireworks_ai.md), [GitHub Copilot](guides/github_copilot.md), [Google](guides/google.md), [Google Vertex](guides/google_vertex.md), [Groq](guides/groq.md), [Inference.net](guides/inference.md), [LM Studio](guides/lmstudio.md), [Meta](guides/meta.md), [Moonshot AI](guides/moonshot_ai.md), [NEAR AI](guides/nearai.md), [Ollama](guides/ollama.md), [OpenAI](guides/openai.md), [OpenRouter](guides/openrouter.md), [Reflection AI](guides/reflection.md), [StepFun](guides/stepfun.md), [xAI](guides/xai.md), [Z.AI](guides/zai.md), [Z.AI Coder](guides/zai_coder.md), [Zenmux](guides/zenmux.md)
 
 ## Roadmap & Status
 
